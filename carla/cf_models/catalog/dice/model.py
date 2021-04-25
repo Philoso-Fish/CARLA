@@ -60,7 +60,8 @@ class Dice(CFModel):
 
         Returns
         -------
-
+        cf : pd.DataFrame
+            Dataframe with counterfactuals.
         """
 
         # Prepare factuals

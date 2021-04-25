@@ -122,3 +122,5 @@ class Data(ABC):
             Tabular data with normalized and encoded information
         """
         pass
+
+    # TODO: Maybe it would be practical to have a set normalization and encoding method to sync with ML model defaults

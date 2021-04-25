@@ -95,3 +95,24 @@ class MLModel(ABC):
             Ml model prediction with shape N x 2
         """
         pass
+
+    @abstractmethod
+    def pipeline(self, df):
+        """
+        Transforms input for prediction into correct form.
+        Only possible for DataFrames without preprocessing steps.
+
+        Recommended to use to keep correct encodings, normalization and input order
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Contains unnormalized and
+
+        Returns
+        -------
+        output : pd.DataFrame
+            Prediction input in correct order, normalized and encoded
+
+        """
+        pass

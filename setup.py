@@ -19,6 +19,8 @@ setup(
         "h5py==2.10.0",
         "dice-ml==0.5",
         "ipython",
+        "scikit-image==0.18.1",
+        "actionable-recourse==1.0.1",
     ],
     entry_points="""
                 [console_scripts]

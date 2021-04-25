@@ -47,10 +47,7 @@ def load_model(name, dataset, ext="h5", cache=True, models_home=None, **kws):
         )
 
         if not os.path.exists(cache_path):
-            len_file_name = len(name + "." + ext)
-            cache_path_without_file = cache_path[:-len_file_name]
-            if not os.path.exists(cache_path_without_file):
-                os.makedirs(os.path.dirname(cache_path_without_file))
+            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
             try:
                 urlretrieve(full_path, cache_path)
             except HTTPError as e:
@@ -61,9 +58,16 @@ def load_model(name, dataset, ext="h5", cache=True, models_home=None, **kws):
         full_path = cache_path
 
     if ext == "pt":
-        model = torch.load(full_path).eval()
+        # model = torch.jit.load(full_path).eval()
+        model = torch.jit.load(
+            "D:\\Eigene Dateien\\Uni\\Master\\3_Semester_WS20_21\\Forschungsprojekt\\Benchmarkin_Counterfactual_Examples\\ML_Model\\Saved_Models\\ANN\\ann_traced.pt"
+        )
+        model = model.eval()
     elif ext == "h5":
         model = tf.keras.models.load_model(full_path)
+        # TODO: Test for one-hot-encoded model
+        # model = tf.keras.models.load_model(
+        #     'D:\\Eigene Dateien\\Uni\\Master\\4_Semester_SS21\\Masterarbeit\\gitroot\\cf-models\\models\\adult\\ann_ohe.h5')
     else:
         raise NotImplementedError("Extension not supported:", ext)
 
