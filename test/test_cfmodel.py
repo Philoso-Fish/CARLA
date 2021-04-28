@@ -67,6 +67,7 @@ def test_ar_get_counterfactual():
     test_factual = factuals.iloc[:22]
 
     cfs = Actionable_Recourse(data, model_tf).get_counterfactuals(test_factual)
+    # TODO: number of CFS and factuals should fit
     print(cfs)
 
     pass

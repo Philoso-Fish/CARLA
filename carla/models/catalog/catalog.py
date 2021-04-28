@@ -53,83 +53,15 @@ class MLModelCatalog(MLModel):
 
         self._model = load_model(model_type, data.name, ext, cache, models_home, **kws)
 
-        self._feature_input_order = feature_input_order
-
         # Preparing pipeline components
         self._continuous = data.continous
         self._categoricals = data.categoricals
         self._scaler = preprocessing.MinMaxScaler().fit(data.raw[self._continuous])
 
-        if data.name == "adult":  # TODO: Hier Lösung für Hardgecodeten quatsch finden
-            if (
-                self._backend == "tensorflow"
-            ):  # TODO: Only for test, look for better implementation
-                self._feature_input_order = [
-                    "age",
-                    "fnlwgt",
-                    "education-num",
-                    "capital-gain",
-                    "capital-loss",
-                    "hours-per-week",
-                    "workclass_Private",
-                    "marital-status_Non-Married",
-                    "occupation_Other",
-                    "relationship_Non-Husband",
-                    "race_White",
-                    "sex_Male",
-                    "native-country_US",
-                ]
-                self._encodings = [  # Encodings should be built in the get_dummy way: {column}_{value}
-                    "workclass_Private",
-                    "marital-status_Non-Married",
-                    "occupation_Other",
-                    "relationship_Non-Husband",
-                    "race_White",
-                    "sex_Male",
-                    "native-country_US",
-                ]
-            else:
-                self._feature_input_order = [  # TODO: Make a yaml for those thing, similar to adult_catalog.yaml
-                    "age",
-                    "fnlwgt",
-                    "education-num",
-                    "capital-gain",
-                    "capital-loss",
-                    "hours-per-week",
-                    "sex_Female",
-                    "sex_Male",
-                    "workclass_Non-Private",
-                    "workclass_Private",
-                    "marital-status_Married",
-                    "marital-status_Non-Married",
-                    "occupation_Managerial-Specialist",
-                    "occupation_Other",
-                    "relationship_Husband",
-                    "relationship_Non-Husband",
-                    "race_Non-White",
-                    "race_White",
-                    "native-country_Non-US",
-                    "native-country_US",
-                ]
-                self._encodings = [  # Encodings should be built in the get_dummy way: {column}_{value}
-                    "sex_Female",
-                    "sex_Male",
-                    "workclass_Non-Private",
-                    "workclass_Private",
-                    "marital-status_Married",
-                    "marital-status_Non-Married",
-                    "occupation_Managerial-Specialist",
-                    "occupation_Other",
-                    "relationship_Husband",
-                    "relationship_Non-Husband",
-                    "race_Non-White",
-                    "race_White",
-                    "native-country_Non-US",
-                    "native-country_US",
-                ]
-
-        else:
-            raise Exception("Model for dataset not in catalog")
+        self._feature_input_order = feature_input_order
+        self._encodings = [
+            enc for enc in self._feature_input_order if enc not in self._continuous
+        ]
 
     def pipeline(self, df):
         """
