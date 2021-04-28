@@ -2,10 +2,10 @@ import numpy as np
 import recourse as rs
 from lime.lime_tabular import LimeTabularExplainer
 
-from ...api import CFModel
+from ...api import Recourse_Method
 
 
-class Actionable_Recourse(CFModel):
+class Actionable_Recourse(Recourse_Method):
     def __init__(self, data, mlmodel, coeffs=None, intercepts=None):
         """
 

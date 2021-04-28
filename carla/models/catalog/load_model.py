@@ -59,8 +59,11 @@ def load_model(name, dataset, ext="h5", cache=True, models_home=None, **kws):
 
     if ext == "pt":
         # model = torch.jit.load(full_path).eval()
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         model = torch.jit.load(
-            "D:\\Eigene Dateien\\Uni\\Master\\3_Semester_WS20_21\\Forschungsprojekt\\Benchmarkin_Counterfactual_Examples\\ML_Model\\Saved_Models\\ANN\\ann_traced.pt"
+            # "D:\\Eigene Dateien\\Uni\\Master\\3_Semester_WS20_21\\Forschungsprojekt\\Benchmarkin_Counterfactual_Examples\\ML_Model\\Saved_Models\\ANN\\ann_traced.pt",
+            "/home/sascha/Uni/Master/4_Semester_SS21/Masterarbeit/gitroot/ann_traced.pt",
+            map_location=device,
         )
         model = model.eval()
     elif ext == "h5":

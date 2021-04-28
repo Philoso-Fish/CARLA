@@ -9,17 +9,29 @@ from .load_model import load_model
 
 class MLModelCatalog(MLModel):
     def __init__(
-        self, data, data_name, model_type, ext="h5", cache=True, models_home=None, **kws
+        self,
+        data,
+        model_type,
+        feature_input_order,
+        backend="tensorflow",
+        cache=True,
+        models_home=None,
+        **kws
     ):
         """
-        Constructing the ML model
+        Constructor for pretrained ML models from the catalog.
+
+        Possible backends are currently "pytorch" and "tensorflow".
+        Possible models are corrently "ann".
 
         Parameters
         ----------
         model_type : str
-            Name of the model ``{name}.{ext}`` on https://github.com/indyfree/cf-models.
-        data_name : str
-            Name of the dataset the model has been trained on.
+            Architecture [ann]
+        feature_input_order : list
+            List containing all features in correct order for ML prediction
+        backend : str
+            Specifies the used framework [tensorflow, pytorch]
         cache : boolean, optional
             If True, try to load from the local cache first, and save to the cache
             if a download is required.
@@ -29,31 +41,26 @@ class MLModelCatalog(MLModel):
             Additional keyword arguments are passed to passed through to the read model function
         data : data.api.Data Class
             Correct dataset for ML model
-        ext : String
-            File extension of saved ML model file
         """
-        # check if dataset fits to ML model
-        assert data.name == data_name
+        self._backend = backend
 
-        self._continuous = data.continous
-        self._categoricals = data.categoricals
-
-        self._data_name = data_name
-        self._model = load_model(model_type, data_name, ext, cache, models_home, **kws)
-
-        if ext == "pt":
-            self._backend = "pytorch"
-        elif ext == "h5":
-            self._backend = "tensorflow"
+        if self._backend == "pytorch":
+            ext = "pt"
+        elif self._backend == "tensorflow":
+            ext = "h5"
         else:
             raise Exception("Model type not in catalog")
 
-        self._name = model_type + "_" + data_name
+        self._model = load_model(model_type, data.name, ext, cache, models_home, **kws)
+
+        self._feature_input_order = feature_input_order
 
         # Preparing pipeline components
+        self._continuous = data.continous
+        self._categoricals = data.categoricals
         self._scaler = preprocessing.MinMaxScaler().fit(data.raw[self._continuous])
 
-        if data_name == "adult":  # TODO: Hier Lösung für Hardgecodeten quatsch finden
+        if data.name == "adult":  # TODO: Hier Lösung für Hardgecodeten quatsch finden
             if (
                 self._backend == "tensorflow"
             ):  # TODO: Only for test, look for better implementation
@@ -134,7 +141,7 @@ class MLModelCatalog(MLModel):
         Parameters
         ----------
         df : pd.DataFrame
-            Contains unnormalized and
+            Contains unnormalized and not encoded data.
 
         Returns
         -------
@@ -182,18 +189,6 @@ class MLModelCatalog(MLModel):
             return False
 
         return True
-
-    @property
-    def name(self):
-        """
-        Contains meta information about the model, like name, dataset, structure, etc.
-
-        Returns
-        -------
-        name : str
-            Individual name of the ml model
-        """
-        return self._name
 
     @property
     def feature_input_order(self):
@@ -252,7 +247,8 @@ class MLModelCatalog(MLModel):
             Ml model prediction for interval [0, 1] with shape N x 1
         """
 
-        assert len(x.shape) == 2
+        if len(x.shape) != 2:
+            raise ValueError("Input shape has to be two-dimensional")
 
         input = self.pipeline(x) if self.need_pipeline(x) else x
 
@@ -263,7 +259,7 @@ class MLModelCatalog(MLModel):
                 self._model = self._model.to(
                     device
                 )  # Keep model and input on the same device
-                output = self._model(
+                return self._model(
                     input
                 )  # If input is a tensor, the prediction will be a tensor too.
             else:
@@ -276,18 +272,19 @@ class MLModelCatalog(MLModel):
                 output = self._model(input)
 
                 # Convert output back to ndarray
-                output = output.detach().cpu().numpy()
-
+                return output.detach().cpu().numpy()
         elif self._backend == "tensorflow":
-            output = self._model.predict(input)[:, 1].reshape(
+            return self._model.predict(input)[:, 1].reshape(
                 (-1, 1)
             )  # keep output in shape N x 1
-
-        return output
+        else:
+            raise ValueError(
+                'Uncorrect backend value. Please use only "pytorch" or "tensorflow".'
+            )
 
     def predict_proba(self, x):
         """
-        Two-dimensional softmax prediction of ml model
+        Two-dimensional probability prediction of ml model
 
         Shape of input dimension has to be always two-dimensional (e.g., (1, m), (n, m))
 
@@ -302,7 +299,8 @@ class MLModelCatalog(MLModel):
             Ml model prediction with shape N x 2
         """
 
-        assert len(x.shape) == 2
+        if len(x.shape) != 2:
+            raise ValueError("Input shape has to be two-dimensional")
 
         input = self.pipeline(x) if self.need_pipeline(x) else x
 
@@ -311,11 +309,13 @@ class MLModelCatalog(MLModel):
             class_2 = self.predict(input)
 
             if torch.is_tensor(class_1):
-                output = torch.cat((class_1, class_2), dim=1)
+                return torch.cat((class_1, class_2), dim=1)
             else:
-                output = np.array(list(zip(class_1, class_2))).reshape((-1, 2))
+                return np.array(list(zip(class_1, class_2))).reshape((-1, 2))
 
         elif self._backend == "tensorflow":
-            output = self._model.predict(input)
-
-        return output
+            return self._model.predict(input)
+        else:
+            raise ValueError(
+                'Uncorrect backend value. Please use only "pytorch" or "tensorflow".'
+            )

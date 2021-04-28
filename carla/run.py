@@ -9,8 +9,23 @@ if __name__ == "__main__":
     # data = DataCatalog(data_name, data_catalog, drop_first_encoding=True)
     data = DataCatalog(data_name, data_catalog, drop_first_encoding=False)
 
-    # model = MLModelCatalog(data, data_name, "ann")
-    model = MLModelCatalog(data, data_name, "ann", ext="pt")
+    feature_input_order = [
+        "age",
+        "fnlwgt",
+        "education-num",
+        "capital-gain",
+        "capital-loss",
+        "hours-per-week",
+        "workclass_Private",
+        "marital-status_Non-Married",
+        "occupation_Other",
+        "relationship_Non-Husband",
+        "race_White",
+        "sex_Male",
+        "native-country_US",
+    ]
+
+    model = MLModelCatalog(data, "ann", feature_input_order)
     print(f"Using model: {model.raw_model.__class__.__module__}")
     print(data.target)
     print(predict_negative_instances(model, data).head(100))
