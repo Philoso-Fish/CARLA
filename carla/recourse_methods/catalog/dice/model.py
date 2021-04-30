@@ -55,7 +55,8 @@ class Dice(RecourseMethod):
 
         Returns
         -------
-
+        cfs : pd.DataFrame
+            Encoded and normalized counterfactuals
         """
 
         # Prepare factuals

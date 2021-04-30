@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 from sklearn import preprocessing
 
+from carla.models.pipelining import encoder, order_data, scaler
+
 from ..api import MLModel
 from .load_model import load_model
 
@@ -15,6 +17,8 @@ class MLModelCatalog(MLModel):
         backend="tensorflow",
         cache=True,
         models_home=None,
+        pipeline=None,
+        encode_normalize_data=False,
         **kws
     ):
         """
@@ -25,6 +29,8 @@ class MLModelCatalog(MLModel):
 
         Parameters
         ----------
+        data : data.api.Data Class
+            Correct dataset for ML model
         model_type : str
             Architecture [ann]
         feature_input_order : list
@@ -38,8 +44,10 @@ class MLModelCatalog(MLModel):
             The directory in which to cache data; see :func:`get_models_home`.
         kws : keys and values, optional
             Additional keyword arguments are passed to passed through to the read model function
-        data : data.api.Data Class
-            Correct dataset for ML model
+        pipeline : list, optional
+            List of (name, transform) tuples that are chained in the order in which they are preformed.
+        encode_normalize_data : bool, optional
+            If true, the model pipeline is used to build data.encoded, data.normalized and data.encoded_normalizd
         """
         self._backend = backend
 
@@ -52,26 +60,75 @@ class MLModelCatalog(MLModel):
 
         self._model = load_model(model_type, data.name, ext, cache, models_home, **kws)
 
+        self._continuous = data.continous
+        self._categoricals = data.categoricals
+
         self._feature_input_order = feature_input_order
 
         # Preparing pipeline components
-        self._continuous = data.continous
-        self._categoricals = data.categoricals
-        self._scaler = preprocessing.MinMaxScaler().fit(data.raw[self._continuous])
+        self._pipeline = self.__init_pipeline(pipeline, data)
 
-        self._encodings = (
-            [  # Encodings should be built in the get_dummy way: {column}_{value}
-                "workclass_Private",
-                "marital-status_Non-Married",
-                "occupation_Other",
-                "relationship_Non-Husband",
-                "race_White",
-                "sex_Male",
-                "native-country_US",
+        if encode_normalize_data:
+            data.set_encoded_normalized(self)
+
+    def __init_pipeline(self, pipeline, data):
+        if pipeline is None:
+            self._scaler = preprocessing.MinMaxScaler().fit(data.raw[self._continuous])
+            self._encoder = preprocessing.OneHotEncoder(
+                handle_unknown="ignore", sparse=False
+            ).fit(data.raw[self._categoricals])
+            return [
+                ("scaler", lambda x: scaler(self._scaler, self._continuous, x)),
+                ("encoder", lambda x: encoder(self._encoder, self._categoricals, x)),
+                ("order", lambda x: order_data(self._feature_input_order, x)),
             ]
-        )
+        else:
+            return pipeline
 
-    def pipeline(self, df):
+    def set_pipeline(self, steps):
+        """
+        Sets sequentially list of data transformations to perform on input before predictions.
+
+        Parameters
+        ----------
+        steps : list
+            List of (name, transform) tuples that are chained in the order in which they are preformed.
+
+        Returns
+        -------
+        None
+        """
+        self._pipeline = steps
+
+    def get_pipeline_element(self, key):
+        """
+        Returns a specific element of the pipeline
+
+        Parameters
+        ----------
+        key : str
+            Element of the pipeline we want to return
+
+        Returns
+        -------
+        Pipeline element
+        """
+        key_idx = list(zip(*self._pipeline))[0].index(key)  # find key in pipeline
+        return self._pipeline[key_idx][1]
+
+    @property
+    def pipeline(self):
+        """
+        Returns transformations steps for input before predictions.
+
+        Returns
+        -------
+        pipeline : list
+            List of (name, transform) tuples that are chained in the order in which they are preformed.
+        """
+        return self._pipeline
+
+    def perform_pipeline(self, df):
         """
         Transforms input for prediction into correct form.
         Only possible for DataFrames without preprocessing steps.
@@ -91,27 +148,15 @@ class MLModelCatalog(MLModel):
         """
         output = df.copy()
 
-        # Normalization
-        output[self._continuous] = self._scaler.transform(output[self._continuous])
-
-        # Encoding
-        output[self._encodings] = 0
-        for encoding in self._encodings:
-            for cat in self._categoricals:
-                if cat in encoding:
-                    value = encoding.split(cat + "_")[-1]
-                    output.loc[output[cat] == value, encoding] = 1
-                    break
-
-        # Get correct order
-        output = output[self._feature_input_order]
+        for trans_name, trans_function in self._pipeline:
+            output = trans_function(output)
 
         return output
 
     def need_pipeline(self, x):
         """
         Checks if ML model input needs pipelining.
-        Only DataFrames can be used to pipeline input.
+        Only DataFrames can be used to perform_pipeline input.
 
         Parameters
         ----------
@@ -133,7 +178,7 @@ class MLModelCatalog(MLModel):
     @property
     def feature_input_order(self):
         """
-        Saves the required order of feature as list.
+        Saves the required order of features as list.
 
         Prevents confusion about correct order of input features in evaluation
 
@@ -190,7 +235,7 @@ class MLModelCatalog(MLModel):
         if len(x.shape) != 2:
             raise ValueError("Input shape has to be two-dimensional")
 
-        input = self.pipeline(x) if self.need_pipeline(x) else x
+        input = self.perform_pipeline(x) if self.need_pipeline(x) else x
 
         if self._backend == "pytorch":
             return self._model.predict(input)
@@ -221,7 +266,7 @@ class MLModelCatalog(MLModel):
         if len(x.shape) != 2:
             raise ValueError("Input shape has to be two-dimensional")
 
-        input = self.pipeline(x) if self.need_pipeline(x) else x
+        input = self.perform_pipeline(x) if self.need_pipeline(x) else x
 
         if self._backend == "pytorch":
             class_1 = 1 - self._model.forward(input).detach().numpy().squeeze()
