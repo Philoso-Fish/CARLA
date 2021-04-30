@@ -2,10 +2,10 @@ import numpy as np
 import recourse as rs
 from lime.lime_tabular import LimeTabularExplainer
 
-from ...api import Recourse_Method
+from ...api import RecourseMethod
 
 
-class Actionable_Recourse(Recourse_Method):
+class Actionable_Recourse(RecourseMethod):
     def __init__(self, data, mlmodel, coeffs=None, intercepts=None):
         """
 
@@ -110,7 +110,18 @@ class Actionable_Recourse(Recourse_Method):
         assert querry_instances.shape[0] >= 1
 
         # preprocessing for lime
-        factuals_enc_norm = self._mlmodel.pipeline(querry_instances)
+        scaler = self._mlmodel.scaler
+        encoder = self._mlmodel.encoder
+        querry_instances[self._data.continous] = scaler.transform(
+            querry_instances[self._data.continous]
+        )  # normalize
+        encoded_features = encoder.get_feature_names(self._data.categoricals)
+        querry_instances[encoded_features] = encoder.transform(
+            querry_instances[self._data.categoricals]
+        )  # encode
+        factuals_enc_norm = querry_instances[
+            self._mlmodel.feature_input_order
+        ]  # get feature order
 
         # Check if we need lime to build coefficients
         if (self._coeffs is None) and (self._intercepts is None):

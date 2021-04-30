@@ -1,11 +1,11 @@
 import dice_ml
 import pandas as pd
 
-from ...api import Recourse_Method
+from ...api import RecourseMethod
 
 
-class Dice(Recourse_Method):
-    def __init__(self, mlmodel, data):
+class Dice(RecourseMethod):
+    def __init__(self, mlmodel, data, hyperparams):
         """
         Constructor for Dice model
         Implementation can be seen at https://github.com/interpretml/DiCE
@@ -22,6 +22,9 @@ class Dice(Recourse_Method):
             ML model to build counterfactuals for.
         data : data.api.Data
             Underlying dataset we want to build counterfactuals for.
+        hyperparams : dict
+            Hyperparameter which are needed for DICE to generate counterfactuals.
+            Structure: {"num": int, "desired_class": int}
         """
         # Prepare data for dice data structure
         self._dice_data = dice_ml.Data(
@@ -30,20 +33,17 @@ class Dice(Recourse_Method):
             outcome_name=data.target,
         )
 
-        # Build dice model structure
-        # Since our own model class MLModel resembles the sklearn structure it may suffice to use the sklearn
-        # backend implementation made by dice
-        self._backend = "sklearn"
-
-        self._dice_model = dice_ml.Model(model=mlmodel, backend=self._backend)
+        self._dice_model = dice_ml.Model(model=mlmodel, backend="sklearn")
 
         self._dice = dice_ml.Dice(self._dice_data, self._dice_model, method="random")
+        self._num = hyperparams["num"]
+        self._desired_class = hyperparams["desired_class"]
 
     @property
     def dice_model(self):
         return self._dice
 
-    def get_counterfactuals(self, factuals, num_of_cf, desired_class):
+    def get_counterfactuals(self, factuals):
         """
         Compute a certain number of counterfactuals per factual example.
 
@@ -53,7 +53,7 @@ class Dice(Recourse_Method):
         factuals : pd.DataFrame
             DataFrame containing all samples for which we want to generate counterfactual examples.
             All instances should belong to the same class.
-        num_of_cf : int
+        num : int
             Number of counterfactuals we want to generate per factual
         desired_class : int
             The target class we want to reach for our factuals
@@ -73,7 +73,7 @@ class Dice(Recourse_Method):
 
         # Generate counterfactuals
         dice_exp = self._dice.generate_counterfactuals(
-            querry_instances, total_CFs=num_of_cf, desired_class=desired_class
+            querry_instances, total_CFs=self._num, desired_class=self._desired_class
         )
 
         cf_ex_list = dice_exp.cf_examples_list

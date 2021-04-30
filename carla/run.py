@@ -25,7 +25,7 @@ if __name__ == "__main__":
         "native-country_US",
     ]
 
-    model = MLModelCatalog(data, "ann", feature_input_order)
+    model = MLModelCatalog(data, "ann", feature_input_order, encode_normalize_data=True)
     print(f"Using model: {model.raw_model.__class__.__module__}")
     print(data.target)
     print(predict_negative_instances(model, data).head(100))

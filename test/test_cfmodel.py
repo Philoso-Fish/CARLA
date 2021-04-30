@@ -27,14 +27,18 @@ def test_dice_get_counterfactuals():
         "native-country_US",
     ]
 
-    model_tf = MLModelCatalog(data, "ann", feature_input_order)
+    model_tf = MLModelCatalog(
+        data, "ann", feature_input_order, encode_normalize_data=True
+    )
     # get factuals
     factuals = predict_negative_instances(model_tf, data)
-    test_factual = factuals.iloc[:22]
 
-    cfs = Dice(model_tf, data).get_counterfactuals(
-        factuals=test_factual, num_of_cf=1, desired_class=1
-    )
+    hyperparams = {"num": 1, "desired_class": 1}
+    # Pipeline needed for dice, but not for predicting negative instances
+    model_tf.set_use_pipeline(True)
+    test_factual = factuals.iloc[:5]
+
+    cfs = Dice(model_tf, data, hyperparams).get_counterfactuals(factuals=test_factual)
 
     assert test_factual.shape[0] == cfs.shape[0]
 
@@ -60,7 +64,9 @@ def test_ar_get_counterfactual():
         "sex_Male",
         "native-country_US",
     ]
-    model_tf = MLModelCatalog(data, "ann", feature_input_order)
+    model_tf = MLModelCatalog(
+        data, "ann", feature_input_order, encode_normalize_data=True
+    )
 
     # get factuals
     factuals = predict_negative_instances(model_tf, data)
